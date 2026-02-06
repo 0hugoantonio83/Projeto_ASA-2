@@ -1,0 +1,103 @@
+---
+- name: Ansible VM
+  hosts: all
+  become: true
+  vars:
+    docker_arch: "amd64"
+    docker_user: "{{ ansible_user | default(ansible_ssh_user) | default('vagrant') }}"
+    app_dir: "/home/{{ docker_user }}/app"
+
+  tasks:
+    - name: Atualizar o cache do repositório (sudo apt update)
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Atualizar pacotes instalados (sudo apt upgrade)
+      ansible.builtin.apt:
+       upgrade: dist
+       autoremove: yes
+
+    - name: Instalar dependências do sistema e utilitários
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - iputils-ping  # Garante o comando ping
+        state: present
+        update_cache: yes
+
+    - name: Criar diretório para o chaveiro de chaves GPG (keyring)
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Baixar a chave GPG oficial do Docker
+      get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+        force: true
+
+    - name: Adicionar o repositório do Docker ao Apt sources
+      apt_repository:
+        repo: "deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Instalar Docker Engine, CLI, Containerd e Plugins (Compose v2)
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Garantir que o serviço do Docker esteja rodando e habilitado
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Adicionar usuário ao grupo 'docker' (para rodar sem sudo)
+      user:
+        name: "{{ docker_user }}"
+        groups: docker
+        append: yes
+
+    - name: Resetar conexão ssh para aplicar permissões de grupo
+      meta: reset_connection
+
+    - name: Criar diretório do projeto
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0755'
+
+    - name: Copiar arquivos do projeto (Compose, HTML e Configuração do Nginx)
+      copy:
+        src: "{{ item }}"
+        dest: "{{ app_dir }}/{{ item }}"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0644'
+      loop:
+        - docker-compose.yml
+        - Dockerfile     # Necessário para construir a imagem do LB
+        - nginx.conf     # Configuração do Load Balancer
+
+    - name: Subir containers e realizar build (docker compose up -d --build)
+      # Adicionado --build para garantir que a imagem personalizada seja criada
+      shell: docker compose up -d --build --remove-orphans --force-recreate
+      args:
+        chdir: "{{ app_dir }}"
+      environment:
+        COMPOSE_HTTP_TIMEOUT: "200"
