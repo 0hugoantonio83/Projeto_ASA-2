@@ -1,92 +1,94 @@
-# Projeto_ASA-2
 # Projeto ASA - Infraestrutura Automatizada (IaC)
 
-Este projeto implementa um ambiente de infraestrutura como código (IaC) para hospedar uma aplicação **WordPress** completa, utilizando **Vagrant** para virtualização, **Ansible** para provisionamento e **Docker** para orquestração de containers.
+  
 
-O diferencial desta arquitetura é a inclusão de um **Load Balancer Nginx** personalizado operando na Camada 4 (TCP), servindo como proxy para a aplicação.
+Este projeto implementa uma infraestrutura completa para rodar uma aplicação WordPress containerizada, utilizando **Vagrant** para virtualização, **Ansible** para provisionamento e **Docker Compose** para orquestração dos serviços.
 
-## 🚀 Tecnologias Utilizadas
+---
 
-* **Vagrant:** Gerenciamento da Máquina Virtual (Debian Bookworm).
-* **VirtualBox:** Provider de virtualização.
-* **Ansible:** Automação da configuração do ambiente e instalação do Docker.
-* **Docker & Docker Compose:** Containerização dos serviços.
-* **Nginx:** Proxy TCP (Stream Context).
-* **WordPress & MySQL:** Aplicação e Banco de Dados.
+## 🏗️ Arquitetura do Projeto
 
-## 🏗️ Arquitetura
+O ambiente é constituído por uma Máquina Virtual (VM) Debian que hospeda três containers principais:
 
-O ambiente é provisionado automaticamente em uma VM. Dentro desta VM, o Docker Compose orquestra três serviços principais:
+1.  **Database:** MySQL 5.7 (Persistência de dados).
+2.  **Webserver:** WordPress Latest (Aplicação).
+3.  **Webproxy:** Nginx (Proxy Reverso/Load Balancer Camada 4).
 
-1.  **webproxy (Nginx):**
-    * Configurado como Load Balancer de Camada 4 (TCP/UDP) através do bloco `stream`.
-    * Escuta na porta **8080** e encaminha tráfego para o servidor web.
-    * Construído a partir de uma imagem personalizada (`Dockerfile`) baseada no `nginx:latest`.
-2.  **webserver (WordPress):**
-    * Imagem oficial do WordPress.
-    * Acessível apenas via rede interna ou através do proxy.
-3.  **database (MySQL):**
-    * Versão 5.7 (estável para WP).
-    * Persistência de dados via volumes Docker.
+### Detalhes Técnicos
+* **IP da VM:** `192.168.56.118`
+* **Sistema Operacional:** Debian Bookworm (64-bit)
+* **Memória Alocada:** 1024 MB
+* **Porta de Acesso:** 8080 (Mapeada via Proxy)
 
-## 📋 Pré-requisitos
+---
 
-Certifique-se de ter instalado em sua máquina host:
+## 🚀 Pré-requisitos
 
+Para executar este projeto, certifique-se de ter instalado:
 * [VirtualBox](https://www.virtualbox.org/)
 * [Vagrant](https://www.vagrantup.com/)
-* [Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html) (Obrigatório para o provisionamento do Vagrant)
+* [Ansible](https://docs.ansible.com/) (Necessário na máquina host)
 
-## 🔧 Instalação e Execução
+---
 
-1.  **Clone este repositório:**
-    ```bash
-    git clone <https://github.com/0hugoantonio83/Projeto_ASA-2>
-    cd <Projeto_ASA-2>
-    ```
+## 🛠️ Instalação e Execução
 
-2.  **Suba o ambiente:**
-    Execute o comando abaixo na raiz do projeto. O Vagrant irá criar a VM, e o Ansible irá instalar o Docker e subir os containers automaticamente.
+1.  **Clone o repositório** para sua máquina local.
+
+2.  **Inicie o ambiente** executando o comando abaixo na raiz do projeto:
+
     ```bash
     vagrant up
     ```
 
-3.  **Acesse a Aplicação:**
-    Uma vez finalizado o processo, a aplicação estará disponível no IP estático definido:
+    *O Vagrant irá:*
+    * Baixar a box `debian/bookworm64`.
+    * Configurar a rede privada.
+    * Acionar o **Ansible** automaticamente para instalar o Docker e subir os containers.
 
-    👉 **URL:** `http://192.168.56.118:8080`
+3.  **Acesse a aplicação** no navegador:
 
-## 📂 Estrutura do Projeto
-
-* `Vagrantfile`: Define a VM com IP `192.168.56.118` e 1GB de RAM.
-* `playbook_ansible.yml`: Playbook que instala o Docker Engine, cria diretórios e executa o `docker compose up`.
-* `docker-compose.yml`: Define a stack (MySQL, WordPress, Nginx Proxy).
-* `nginx.conf`: Configuração do Nginx para encaminhamento de tráfego TCP na porta 8080.
-* `Dockerfile`: Script de build para a imagem do proxy.
-
-## 🔐 Credenciais (Ambiente de Desenvolvimento)
-
-Conforme definido no arquivo `docker-compose.yml`:
-
-* **Banco de Dados:** `wordpress`
-* **Usuário do Banco:** `wordpress_user`
-* **Senha do Banco:** `wordpress_password`
-* **Senha Root (DB):** `senha_root_secreta`
-
-## 🛠️ Comandos Úteis
-
-* **Acessar a VM via SSH:**
-    ```bash
-    vagrant ssh
     ```
-* **Parar a VM:**
-    ```bash
-    vagrant halt
-    ```
-* **Destruir o ambiente (remover VM):**
-    ```bash
-    vagrant destroy
+    (http://192.168.56.118:8080)
     ```
 
 ---
-**Disciplina:** ASA
+
+## 🔐 Credenciais e Configurações
+
+As credenciais abaixo foram definidas no arquivo `docker-compose.yml`:
+
+| Serviço | Variável | Valor |
+| :--- | :--- | :--- |
+| **MySQL** | `MYSQL_ROOT_PASSWORD` | `senha_root_secreta` |
+| **MySQL** | `MYSQL_DATABASE` | `wordpress` |
+| **MySQL** | `MYSQL_USER` | `wordpress_user` |
+| **MySQL** | `MYSQL_PASSWORD` | `wordpress_password` |
+| **WordPress** | `WORDPRESS_DB_HOST` | `database:3306` |
+
+---
+
+## 📂 Estrutura dos Arquivos
+
+* **`Vagrantfile`**: Define a VM, IP fixo e chama o provisionador Ansible.
+* **`playbook_ansible.yml`**: Instala Docker, Docker Compose e sobe a aplicação.
+* **`docker-compose.yml`**: Orquestra os serviços `database`, `webserver` e `webproxy`.
+* **`nginx.conf`**: Configuração de stream (TCP) do Nginx para proxy na porta 8080.
+* **`Dockerfile`**: Constrói a imagem do proxy (`0hugoantonio83/webproxy:v1`).
+
+---
+
+## 📝 Comandos Úteis
+
+```bash
+# Acessar a VM via SSH
+vagrant ssh
+
+# Parar a VM
+vagrant halt
+
+# Destruir o ambiente (remover VM e discos)
+vagrant destroy
+
+# Verificar status dos containers (dentro da VM)
+docker compose ps
