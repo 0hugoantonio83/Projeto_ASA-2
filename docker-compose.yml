@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # 1. Banco de Dados (MySQL)
+  database:
+    image: mysql:5.7
+    container_name: database
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: senha_root_secreta
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress_user
+      MYSQL_PASSWORD: wordpress_password
+    volumes:
+      - my:/var/lib/mysql
+    networks:
+      - wordpress
+
+  # 2. Servidor Wordpress
+  webserver:
+    image: wordpress:latest
+    container_name: webserver
+    restart: always
+    depends_on:
+      - database
+    environment:
+      WORDPRESS_DB_HOST: database:3306
+      WORDPRESS_DB_USER: wordpress_user
+      WORDPRESS_DB_PASSWORD: wordpress_password
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - app:/var/www/html
+    networks:
+      - wordpress
+
+  # 3. Web Proxy
+  webproxy:
+    image: 0hugoantonio83/webproxy:v1
+    container_name: webproxy
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - webserver
+    networks:
+      - wordpress
+
+# Definição dos Volumes
+volumes:
+  app: # Volume para o Wordpress
+  my:  # Volume para o MySQL
+
+# Definição das Redes
+networks:
+  wordpress:
+    driver: bridge
