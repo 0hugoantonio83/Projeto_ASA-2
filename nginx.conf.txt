@@ -1,0 +1,21 @@
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+# O bloco 'stream' é usado para Load Balancing de Camada 4 (TCP/UDP)
+stream {
+    upstream backend_servers {
+        # Define o servidor de destino (nome resolvível pelo Docker DNS)
+        server webserver:80;
+    }
+
+    server {
+        # Escuta na porta 8080
+        listen 8080;
+        
+        # Encaminha o tráfego TCP para o grupo definido acima
+        proxy_pass backend_servers;
+    }
+}
